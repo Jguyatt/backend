@@ -239,4 +239,4 @@ export const userAuth = {
   }
 };
 
-export default userAuth; 
+module.exports = { userAuth }; 

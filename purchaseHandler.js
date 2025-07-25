@@ -1,10 +1,10 @@
 // Purchase Handler - Automatically connects Stripe purchases to user accounts
 // This handles the complete purchase flow from Stripe to dashboard
 
-import { customerAuth } from './customerAuth';
-import { userAuth } from './userAuth';
+const { customerAuth } = require('./customerAuth');
+const { userAuth } = require('./userAuth');
 
-export const purchaseHandler = {
+const purchaseHandler = {
   // Handle successful purchase from Stripe
   handleSuccessfulPurchase: (purchaseData) => {
     console.log('💰 Processing successful purchase:', purchaseData);
@@ -334,4 +334,4 @@ function createOnboardingSubmission(email, name, packageName) {
   }
 }
 
-export default purchaseHandler; 
+module.exports = { purchaseHandler, handleSuccessfulPurchase: purchaseHandler.handleSuccessfulPurchase }; 

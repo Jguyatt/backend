@@ -119,7 +119,7 @@ function processPurchase(session) {
 function triggerPurchaseProcessing(purchaseData) {
   try {
     // Import the existing purchase handler
-    const { handleSuccessfulPurchase } = require('./src/utils/purchaseHandler.js');
+    const { handleSuccessfulPurchase } = require('./purchaseHandler.js');
     
     // Create a mock purchase event that matches the existing logic
     const mockPurchaseEvent = {
