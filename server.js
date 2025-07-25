@@ -108,7 +108,14 @@ function processPurchase(session) {
     console.log('💾 Purchase saved to file');
 
     // Trigger the existing purchase processing logic
-    triggerPurchaseProcessing(purchaseData);
+    const result = triggerPurchaseProcessing(purchaseData);
+    
+    // Mark as processed if successful
+    if (result && result.success) {
+      purchase.processed = true;
+      fs.writeFileSync(purchasesFile, JSON.stringify(purchases, null, 2));
+      console.log('✅ Purchase marked as processed');
+    }
 
   } catch (error) {
     console.error('❌ Error processing purchase:', error);

@@ -1,8 +1,38 @@
 // Purchase Handler - Automatically connects Stripe purchases to user accounts
 // This handles the complete purchase flow from Stripe to dashboard
 
-const { customerAuth } = require('./customerAuth');
-const { userAuth } = require('./userAuth');
+const fs = require('fs');
+const path = require('path');
+
+// Simple file-based storage for Node.js environment
+const storageDir = './data';
+if (!fs.existsSync(storageDir)) {
+  fs.mkdirSync(storageDir, { recursive: true });
+}
+
+// Helper functions for file-based storage
+const readStorage = (filename) => {
+  try {
+    const filePath = path.join(storageDir, filename);
+    if (fs.existsSync(filePath)) {
+      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    }
+  } catch (error) {
+    console.error(`Error reading ${filename}:`, error);
+  }
+  return null;
+};
+
+const writeStorage = (filename, data) => {
+  try {
+    const filePath = path.join(storageDir, filename);
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    return true;
+  } catch (error) {
+    console.error(`Error writing ${filename}:`, error);
+    return false;
+  }
+};
 
 const purchaseHandler = {
   // Handle successful purchase from Stripe
@@ -19,9 +49,8 @@ const purchaseHandler = {
     } = purchaseData;
 
     // Get current user session to ensure we have the right user data
-    const userSession = userAuth.getSession();
-    const finalEmail = customerEmail || userSession?.email || 'customer@example.com';
-    const finalName = customerName || userSession?.name || 'Customer';
+    const finalEmail = customerEmail || 'customer@example.com';
+    const finalName = customerName || 'Customer';
     
     console.log('👤 Using user data:', { email: finalEmail, name: finalName });
 
@@ -98,25 +127,18 @@ const purchaseHandler = {
     };
 
     // Store customer data
-    customerAuth.loginAsCustomer(customerData);
-
+    const existingData = readStorage('customerData.json') || {};
+    const customerKey = `customer-${finalEmail.replace(/[^a-zA-Z0-9]/g, '-')}`;
+    existingData[customerKey] = customerData;
+    writeStorage('customerData.json', existingData);
+    
     // Update user account if it exists
     updateUserAccount(finalEmail, packageName);
-
+    
     // Create onboarding submission
     createOnboardingSubmission(finalEmail, finalName, packageName);
-
-    // Dispatch events to notify components
-    window.dispatchEvent(new CustomEvent('purchaseCompleted', { 
-      detail: { customerData } 
-    }));
-
-    // Dispatch event for admin dashboard to refresh
-    window.dispatchEvent(new CustomEvent('customerAdded', { 
-      detail: { customerData } 
-    }));
-
-    console.log('✅ Purchase successfully processed for:', customerEmail);
+    
+    console.log('✅ Purchase successfully processed for:', finalEmail);
     return customerData;
   },
 
@@ -265,7 +287,7 @@ function getProjectDeliverables(packageName) {
 
 function updateUserAccount(email, packageName) {
   try {
-    const users = JSON.parse(localStorage.getItem('users') || '{}');
+    const users = readStorage('users.json') || {};
     const user = users[email.toLowerCase()];
     
     if (user) {
@@ -281,12 +303,7 @@ function updateUserAccount(email, packageName) {
       });
       
       users[email.toLowerCase()] = user;
-      localStorage.setItem('users', JSON.stringify(users));
-      
-      // Dispatch event to notify admin dashboard
-      window.dispatchEvent(new CustomEvent('userAdded', { 
-        detail: { user } 
-      }));
+      writeStorage('users.json', users);
       
       console.log('👤 Updated user account for:', email);
     }
@@ -297,7 +314,7 @@ function updateUserAccount(email, packageName) {
 
 function createOnboardingSubmission(email, name, packageName) {
   try {
-    const submissions = JSON.parse(localStorage.getItem('onboarding-submissions') || '[]');
+    const submissions = readStorage('onboarding-submissions.json') || [];
     
     const submission = {
       id: 'submission_' + Date.now(),
@@ -321,12 +338,7 @@ function createOnboardingSubmission(email, name, packageName) {
     };
     
     submissions.push(submission);
-    localStorage.setItem('onboarding-submissions', JSON.stringify(submissions));
-    
-    // Dispatch event to notify admin dashboard
-    window.dispatchEvent(new CustomEvent('onboardingSubmitted', { 
-      detail: { submission } 
-    }));
+    writeStorage('onboarding-submissions.json', submissions);
     
     console.log('📝 Created onboarding submission for:', email);
   } catch (error) {
