@@ -194,6 +194,93 @@ app.post('/api/purchases/:id/process', (req, res) => {
   }
 });
 
+// API endpoint to get customer data for frontend
+app.get('/api/customer-data/:email', (req, res) => {
+  try {
+    const email = req.params.email;
+    const customerData = readStorage('customerData.json') || {};
+    const customerKey = `customer-${email.replace(/[^a-zA-Z0-9]/g, '-')}`;
+    
+    if (customerData[customerKey]) {
+      res.json({ success: true, data: customerData[customerKey] });
+    } else {
+      res.json({ success: false, error: 'Customer not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to load customer data' });
+  }
+});
+
+// API endpoint to get all customer data for admin dashboard
+app.get('/api/all-customers', (req, res) => {
+  try {
+    const customerData = readStorage('customerData.json') || {};
+    const users = readStorage('users.json') || {};
+    const onboardingSubmissions = readStorage('onboarding-submissions.json') || [];
+    
+    res.json({
+      success: true,
+      customers: customerData,
+      users: users,
+      onboardingSubmissions: onboardingSubmissions
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to load customer data' });
+  }
+});
+
+// API endpoint to sync frontend data with backend
+app.post('/api/sync-data', (req, res) => {
+  try {
+    const { email, customerData, userData } = req.body;
+    
+    if (email && customerData) {
+      const existingData = readStorage('customerData.json') || {};
+      const customerKey = `customer-${email.replace(/[^a-zA-Z0-9]/g, '-')}`;
+      existingData[customerKey] = customerData;
+      writeStorage('customerData.json', existingData);
+    }
+    
+    if (userData) {
+      const existingUsers = readStorage('users.json') || {};
+      existingUsers[userData.email.toLowerCase()] = userData;
+      writeStorage('users.json', existingUsers);
+    }
+    
+    res.json({ success: true, message: 'Data synced successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to sync data' });
+  }
+});
+
+// Helper functions for file-based storage
+function readStorage(filename) {
+  try {
+    const filePath = path.join(__dirname, 'data', filename);
+    if (fs.existsSync(filePath)) {
+      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    }
+  } catch (error) {
+    console.error(`Error reading ${filename}:`, error);
+  }
+  return null;
+}
+
+function writeStorage(filename, data) {
+  try {
+    const dataDir = path.join(__dirname, 'data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    const filePath = path.join(dataDir, filename);
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    return true;
+  } catch (error) {
+    console.error(`Error writing ${filename}:`, error);
+    return false;
+  }
+}
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ 
