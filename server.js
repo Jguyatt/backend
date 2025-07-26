@@ -153,11 +153,16 @@ function processPurchase(session) {
 
     // Store in customer data storage
     const customerKey = `customer-${customerEmail?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'unknown'}`;
-    customerDataStorage[customerKey] = customerData;
+    
+    // Use the same storage system as API endpoints
+    const existingCustomerData = readStorage('customerData.json') || {};
+    existingCustomerData[customerKey] = customerData;
+    writeStorage('customerData.json', existingCustomerData);
     
     // Also add to users storage if not already there
-    if (customerEmail && !usersStorage[customerEmail.toLowerCase()]) {
-      usersStorage[customerEmail.toLowerCase()] = {
+    const existingUsers = readStorage('users.json') || {};
+    if (customerEmail && !existingUsers[customerEmail.toLowerCase()]) {
+      existingUsers[customerEmail.toLowerCase()] = {
         email: customerEmail,
         name: customerName || 'Customer',
         businessName: (customerName || 'Customer') + ' Business',
@@ -166,11 +171,12 @@ function processPurchase(session) {
         createdAt: new Date().toISOString(),
         projects: []
       };
+      writeStorage('users.json', existingUsers);
     }
 
-    console.log('💾 Customer data stored in memory');
-    console.log('📊 Total customers:', Object.keys(customerDataStorage).length);
-    console.log('📊 Total users:', Object.keys(usersStorage).length);
+    console.log('💾 Customer data stored using storage system');
+    console.log('📊 Total customers:', Object.keys(existingCustomerData).length);
+    console.log('📊 Total users:', Object.keys(existingUsers).length);
 
   } catch (error) {
     console.error('❌ Error processing purchase:', error);
