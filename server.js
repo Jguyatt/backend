@@ -540,6 +540,66 @@ app.post('/api/test/create-customer', (req, res) => {
   }
 });
 
+// Endpoint to cleanup test data
+app.post('/api/cleanup-test-data', (req, res) => {
+  try {
+    const { testCustomers, testUsers, testSubmissions } = req.body;
+    
+    console.log('🧹 Cleaning up test data...');
+    
+    // Clean up test customers
+    if (testCustomers && testCustomers.length > 0) {
+      const existingCustomerData = readStorage('customerData.json') || {};
+      testCustomers.forEach(customerKey => {
+        delete existingCustomerData[customerKey];
+        console.log('🗑️ Removed test customer:', customerKey);
+      });
+      writeStorage('customerData.json', existingCustomerData);
+    }
+    
+    // Clean up test users
+    if (testUsers && testUsers.length > 0) {
+      const existingUsers = readStorage('users.json') || {};
+      testUsers.forEach(email => {
+        delete existingUsers[email.toLowerCase()];
+        console.log('🗑️ Removed test user:', email);
+      });
+      writeStorage('users.json', existingUsers);
+    }
+    
+    // Clean up test onboarding submissions
+    if (testSubmissions && testSubmissions.length > 0) {
+      const existingSubmissions = readStorage('onboarding-submissions.json') || [];
+      const cleanedSubmissions = existingSubmissions.filter(submission => {
+        const isTest = testSubmissions.some(test => 
+          test.id === submission.id || 
+          test.customerEmail === submission.customerEmail
+        );
+        if (isTest) {
+          console.log('🗑️ Removed test submission:', submission.customerEmail);
+        }
+        return !isTest;
+      });
+      writeStorage('onboarding-submissions.json', cleanedSubmissions);
+    }
+    
+    console.log('✅ Test data cleanup completed');
+    res.json({ 
+      success: true, 
+      message: 'Test data cleaned up successfully',
+      removed: {
+        customers: testCustomers?.length || 0,
+        users: testUsers?.length || 0,
+        submissions: testSubmissions?.length || 0
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error cleaning up test data:', error);
+    res.status(500).json({ error: 'Failed to cleanup test data' });
+  }
+});
+
 // Delete user endpoint
 app.post('/api/delete-user', async (req, res) => {
   try {
