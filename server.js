@@ -317,21 +317,26 @@ app.post('/api/sync-data', (req, res) => {
   try {
     const { email, customerData, userData } = req.body;
     
-    if (email && customerData) {
-      const existingData = readStorage('customerData.json') || {};
-      const customerKey = `customer-${email.replace(/[^a-zA-Z0-9]/g, '-')}`;
-      existingData[customerKey] = customerData;
-      writeStorage('customerData.json', existingData);
-    }
-    
+    // Handle user data (from signup)
     if (userData) {
       const existingUsers = readStorage('users.json') || {};
       existingUsers[userData.email.toLowerCase()] = userData;
       writeStorage('users.json', existingUsers);
+      console.log('✅ User data synced:', userData.email);
+    }
+    
+    // Handle customer data (from purchases - only if it has active projects)
+    if (email && customerData && customerData.activeProjects && customerData.activeProjects.length > 0) {
+      const existingData = readStorage('customerData.json') || {};
+      const customerKey = `customer-${email.replace(/[^a-zA-Z0-9]/g, '-')}`;
+      existingData[customerKey] = customerData;
+      writeStorage('customerData.json', existingData);
+      console.log('✅ Customer data synced:', email);
     }
     
     res.json({ success: true, message: 'Data synced successfully' });
   } catch (error) {
+    console.error('❌ Error syncing data:', error);
     res.status(500).json({ error: 'Failed to sync data' });
   }
 });
