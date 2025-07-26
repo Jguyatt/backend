@@ -255,6 +255,29 @@ app.post('/api/sync-data', (req, res) => {
   }
 });
 
+// Endpoint to handle onboarding submissions
+app.post('/api/onboarding-submission', (req, res) => {
+  try {
+    const submissionData = req.body;
+    
+    // Get existing submissions
+    const existingSubmissions = readStorage('onboarding-submissions.json') || [];
+    
+    // Add new submission
+    existingSubmissions.push(submissionData);
+    
+    // Save to storage
+    writeStorage('onboarding-submissions.json', existingSubmissions);
+    
+    console.log('✅ Onboarding submission received:', submissionData.customerEmail);
+    res.json({ success: true, message: 'Onboarding submission saved' });
+    
+  } catch (error) {
+    console.error('❌ Error saving onboarding submission:', error);
+    res.status(500).json({ error: 'Failed to save onboarding submission' });
+  }
+});
+
 // Test endpoint to manually create customer data (for testing only)
 app.post('/api/test/create-customer', (req, res) => {
   try {
