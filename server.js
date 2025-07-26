@@ -287,10 +287,21 @@ app.post('/api/cancel-project', (req, res) => {
     
     // Get existing customer data
     const customerData = readStorage('customerData.json') || {};
-    const customerKey = `customer-${customerEmail.replace(/[^a-zA-Z0-9]/g, '-')}`;
     
-    if (customerData[customerKey]) {
-      const customer = customerData[customerKey];
+    // Find customer by email (search through all customers)
+    let customer = null;
+    let customerKey = null;
+    
+    for (const [key, customerInfo] of Object.entries(customerData)) {
+      if (customerInfo.email === customerEmail) {
+        customer = customerInfo;
+        customerKey = key;
+        break;
+      }
+    }
+    
+    if (customer) {
+      console.log('✅ Found customer:', customerEmail, 'with key:', customerKey);
       
       // Update subscription status
       customer.subscriptionStatus = 'Cancelled';
@@ -342,6 +353,7 @@ app.post('/api/cancel-project', (req, res) => {
       
     } else {
       console.log('❌ Customer not found:', customerEmail);
+      console.log('Available customers:', Object.keys(customerData));
       res.status(404).json({ error: 'Customer not found' });
     }
     
