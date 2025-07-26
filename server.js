@@ -364,6 +364,141 @@ app.post('/api/onboarding-submission', (req, res) => {
   }
 });
 
+// Endpoint to store cancellation requests from users
+app.post('/api/cancellation-request', (req, res) => {
+  try {
+    const { customerEmail, customerName, projectId, reason } = req.body;
+    
+    console.log('📝 New cancellation request:', { customerEmail, customerName, projectId, reason });
+    
+    // Get existing cancellation requests
+    const existingRequests = readStorage('cancellation-requests.json') || [];
+    
+    // Create new cancellation request
+    const newRequest = {
+      id: Date.now().toString(),
+      customerEmail,
+      customerName,
+      projectId,
+      reason: reason || 'Customer requested cancellation',
+      requestDate: new Date().toISOString(),
+      status: 'pending', // pending, approved, denied
+      reviewedBy: null,
+      reviewedDate: null
+    };
+    
+    // Add to existing requests
+    existingRequests.push(newRequest);
+    writeStorage('cancellation-requests.json', existingRequests);
+    
+    console.log('✅ Cancellation request stored successfully');
+    res.json({ success: true, message: 'Cancellation request submitted successfully' });
+    
+  } catch (error) {
+    console.error('❌ Error storing cancellation request:', error);
+    res.status(500).json({ error: 'Failed to store cancellation request' });
+  }
+});
+
+// Endpoint to get all cancellation requests for admin dashboard
+app.get('/api/cancellation-requests', (req, res) => {
+  try {
+    const requests = readStorage('cancellation-requests.json') || [];
+    res.json({ success: true, requests });
+  } catch (error) {
+    console.error('❌ Error retrieving cancellation requests:', error);
+    res.status(500).json({ error: 'Failed to retrieve cancellation requests' });
+  }
+});
+
+// Endpoint to process cancellation request (approve/deny)
+app.post('/api/process-cancellation', (req, res) => {
+  try {
+    const { requestId, action, adminName } = req.body; // action: 'approve' or 'deny'
+    
+    console.log('🔄 Processing cancellation request:', { requestId, action, adminName });
+    
+    // Get existing requests
+    const existingRequests = readStorage('cancellation-requests.json') || [];
+    const requestIndex = existingRequests.findIndex(req => req.id === requestId);
+    
+    if (requestIndex === -1) {
+      return res.status(404).json({ error: 'Cancellation request not found' });
+    }
+    
+    const request = existingRequests[requestIndex];
+    
+    // Update request status
+    request.status = action === 'approve' ? 'approved' : 'denied';
+    request.reviewedBy = adminName || 'Admin';
+    request.reviewedDate = new Date().toISOString();
+    
+    // Save updated requests
+    writeStorage('cancellation-requests.json', existingRequests);
+    
+    if (action === 'approve') {
+      // Cancel the project
+      const customerData = readStorage('customerData.json') || {};
+      let customer = null;
+      let customerKey = null;
+      
+      for (const [key, customerInfo] of Object.entries(customerData)) {
+        if (customerInfo.email === request.customerEmail) {
+          customer = customerInfo;
+          customerKey = key;
+          break;
+        }
+      }
+      
+      if (customer) {
+        // Move project to completed projects
+        if (customer.activeProjects) {
+          const cancelledProject = customer.activeProjects.find(project => project.id == request.projectId);
+          
+          if (cancelledProject) {
+            // Move project to completed projects
+            if (!customer.completedProjects) customer.completedProjects = [];
+            customer.completedProjects.push({
+              ...cancelledProject,
+              status: 'Cancelled',
+              cancelledDate: new Date().toISOString(),
+              cancelledBy: 'Customer Request',
+              completedDate: new Date().toISOString(),
+              cancellationReason: request.reason
+            });
+            
+            // Remove from active projects
+            customer.activeProjects = customer.activeProjects.filter(project => project.id != request.projectId);
+            
+            // Add cancellation activity
+            if (!customer.recentActivity) customer.recentActivity = [];
+            customer.recentActivity.unshift({
+              id: Date.now(),
+              type: 'project_cancelled',
+              message: `Project cancelled by customer request`,
+              timestamp: new Date().toISOString(),
+              projectId: request.projectId
+            });
+            
+            // Update customer data
+            customerData[customerKey] = customer;
+            writeStorage('customerData.json', customerData);
+            
+            console.log('✅ Project cancelled successfully');
+          }
+        }
+      }
+    }
+    
+    console.log(`✅ Cancellation request ${action}d successfully`);
+    res.json({ success: true, message: `Cancellation request ${action}d successfully` });
+    
+  } catch (error) {
+    console.error('❌ Error processing cancellation request:', error);
+    res.status(500).json({ error: 'Failed to process cancellation request' });
+  }
+});
+
 // Endpoint to handle project cancellation
 app.post('/api/cancel-project', (req, res) => {
   try {
@@ -394,17 +529,31 @@ app.post('/api/cancel-project', (req, res) => {
       
       // Update the specific project
       if (customer.activeProjects) {
-        customer.activeProjects = customer.activeProjects.map(project => {
-          if (project.id == projectId) {
-            return {
-              ...project,
-              status: 'Cancelled',
-              cancelledDate: new Date().toISOString(),
-              cancelledBy: cancelledBy || 'Admin'
-            };
-          }
-          return project;
-        });
+        const cancelledProject = customer.activeProjects.find(project => project.id == projectId);
+        
+        if (cancelledProject) {
+          // Calculate billing period end date (30 days from now)
+          const billingEndDate = new Date();
+          billingEndDate.setDate(billingEndDate.getDate() + 30);
+          
+          // Move project to completed projects with billing end date
+          if (!customer.completedProjects) customer.completedProjects = [];
+          customer.completedProjects.push({
+            ...cancelledProject,
+            status: 'Cancelled',
+            cancelledDate: new Date().toISOString(),
+            cancelledBy: cancelledBy || 'Admin',
+            completedDate: new Date().toISOString(),
+            billingEndDate: billingEndDate.toISOString(),
+            cancellationReason: cancelledBy === 'Customer' ? 'Customer requested cancellation' : 'Cancelled by admin'
+          });
+          
+          // Remove from active projects
+          customer.activeProjects = customer.activeProjects.filter(project => project.id != projectId);
+          
+          console.log('✅ Project moved to completed projects and removed from active projects');
+          console.log('📅 Billing period ends:', billingEndDate.toLocaleDateString());
+        }
       }
       
       // Add cancellation activity
@@ -435,12 +584,20 @@ app.post('/api/cancel-project', (req, res) => {
       writeStorage('onboarding-submissions.json', updatedSubmissions);
       
       console.log('✅ Project cancelled successfully for:', customerEmail);
-      res.json({ success: true, message: 'Project cancelled successfully' });
+      res.json({ 
+        success: true, 
+        message: 'Project cancelled successfully',
+        billingEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      });
       
     } else {
       console.log('❌ Customer not found:', customerEmail);
       console.log('Available customers:', Object.keys(customerData));
-      res.status(404).json({ error: 'Customer not found' });
+      res.status(404).json({ 
+        success: false,
+        error: 'Customer not found',
+        message: 'No customer found with this email address'
+      });
     }
     
   } catch (error) {
@@ -699,6 +856,7 @@ function readStorage(filename) {
   if (filename === 'users.json') return usersStorage;
   if (filename === 'onboarding-submissions.json') return onboardingSubmissionsStorage;
   if (filename === 'deletedUsers.json') return deletedUsersStorage; // Added for deleted users
+  if (filename === 'cancellation-requests.json') return []; // Added for cancellation requests
   return null;
 }
 
@@ -718,6 +876,11 @@ function writeStorage(filename, data) {
   if (filename === 'deletedUsers.json') { // Added for deleted users
     deletedUsersStorage = data;
     console.log('💾 Deleted users stored:', deletedUsersStorage.length, 'deleted users');
+  }
+  if (filename === 'cancellation-requests.json') { // Added for cancellation requests
+    // In-memory storage for cancellation requests, no file writing needed for this example
+    // For a real application, you'd write to a file here
+    console.log('💾 Cancellation requests stored in memory:', data.length, 'requests');
   }
   return true;
 }
