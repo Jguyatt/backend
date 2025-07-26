@@ -278,6 +278,79 @@ app.post('/api/onboarding-submission', (req, res) => {
   }
 });
 
+// Endpoint to handle project cancellation
+app.post('/api/cancel-project', (req, res) => {
+  try {
+    const { customerEmail, projectId, cancelledBy } = req.body;
+    
+    console.log('🚫 Cancelling project:', { customerEmail, projectId, cancelledBy });
+    
+    // Get existing customer data
+    const customerData = readStorage('customerData.json') || {};
+    const customerKey = `customer-${customerEmail.replace(/[^a-zA-Z0-9]/g, '-')}`;
+    
+    if (customerData[customerKey]) {
+      const customer = customerData[customerKey];
+      
+      // Update subscription status
+      customer.subscriptionStatus = 'Cancelled';
+      
+      // Update the specific project
+      if (customer.activeProjects) {
+        customer.activeProjects = customer.activeProjects.map(project => {
+          if (project.id == projectId) {
+            return {
+              ...project,
+              status: 'Cancelled',
+              cancelledDate: new Date().toISOString(),
+              cancelledBy: cancelledBy || 'Admin'
+            };
+          }
+          return project;
+        });
+      }
+      
+      // Add cancellation activity
+      if (!customer.recentActivity) customer.recentActivity = [];
+      customer.recentActivity.unshift({
+        id: Date.now(),
+        type: 'project_cancelled',
+        message: `Project cancelled by ${cancelledBy || 'Admin'}`,
+        timestamp: new Date().toISOString(),
+        projectId: projectId
+      });
+      
+      // Save updated customer data
+      customerData[customerKey] = customer;
+      writeStorage('customerData.json', customerData);
+      
+      // Update onboarding submissions if any
+      const existingSubmissions = readStorage('onboarding-submissions.json') || [];
+      const updatedSubmissions = existingSubmissions.map(submission => {
+        if (submission.customerEmail === customerEmail) {
+          return {
+            ...submission,
+            status: 'cancelled'
+          };
+        }
+        return submission;
+      });
+      writeStorage('onboarding-submissions.json', updatedSubmissions);
+      
+      console.log('✅ Project cancelled successfully for:', customerEmail);
+      res.json({ success: true, message: 'Project cancelled successfully' });
+      
+    } else {
+      console.log('❌ Customer not found:', customerEmail);
+      res.status(404).json({ error: 'Customer not found' });
+    }
+    
+  } catch (error) {
+    console.error('❌ Error cancelling project:', error);
+    res.status(500).json({ error: 'Failed to cancel project' });
+  }
+});
+
 // Test endpoint to manually create customer data (for testing only)
 app.post('/api/test/create-customer', (req, res) => {
   try {
