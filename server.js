@@ -76,77 +76,150 @@ function processPurchase(session) {
     else if (amount === 849) packageName = 'Platinum Local SEO';
     else if (amount === 1) packageName = 'Test';
 
-    // Create purchase data
-    const purchaseData = {
-      customerEmail: customerEmail || 'customer@example.com',
-      customerName: customerName || 'Customer',
-      packageName: packageName,
-      amount: amount,
+    // Create customer data structure
+    const customerData = {
+      name: customerName || 'Customer',
+      email: customerEmail || 'customer@example.com',
+      business: (customerName || 'Customer') + ' Business',
+      package: packageName,
+      monthlyRate: amount,
+      activeProjects: [
+        {
+          id: Date.now(),
+          name: `${packageName} Package`,
+          status: 'Active',
+          startDate: new Date().toISOString().split('T')[0],
+          progress: 20, // Purchase completed, onboarding pending
+          nextUpdate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          type: getProjectType(packageName),
+          category: getProjectCategory(packageName),
+          requirements: getProjectRequirements(packageName),
+          estimatedDuration: '30 days',
+          deliverables: getProjectDeliverables(packageName)
+        }
+      ],
+      orderTimeline: {
+        orderPlaced: {
+          status: 'completed',
+          date: new Date().toISOString().split('T')[0],
+          completed: true
+        },
+        onboardingForm: {
+          status: 'pending',
+          date: null,
+          completed: false
+        },
+        orderInProgress: {
+          status: 'pending',
+          date: null,
+          completed: false
+        },
+        reviewDelivery: {
+          status: 'pending',
+          date: null,
+          completed: false
+        },
+        orderComplete: {
+          status: 'pending',
+          date: null,
+          completed: false
+        }
+      },
+      recentActivity: [
+        { 
+          type: 'purchase_completed', 
+          message: `Purchase completed: ${packageName} Package`, 
+          date: new Date().toISOString().split('T')[0] 
+        }
+      ],
+      subscription: {
+        status: 'Active',
+        plan: `${packageName} Package`,
+        monthlyRate: amount,
+        nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      },
+      billing: {
+        plan: `${packageName} Package`,
+        amount: `$${amount}`,
+        nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        status: 'Active'
+      },
+      stripeCustomerId: session.customer || 'cus_' + Date.now(),
       stripeSessionId: sessionId,
-      stripeCustomerId: session.customer || 'cus_' + Date.now()
+      subscriptionStatus: 'Active'
     };
 
-    console.log('✅ Purchase data created:', purchaseData);
+    console.log('✅ Customer data created:', customerData);
 
-    // Store in a simple file-based database for now
-    // In production, you'd use a real database
-    const fs = require('fs');
-    const purchasesFile = 'purchases.json';
+    // Store in customer data storage
+    const customerKey = `customer-${customerEmail?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'unknown'}`;
+    customerDataStorage[customerKey] = customerData;
     
-    let purchases = [];
-    try {
-      purchases = JSON.parse(fs.readFileSync(purchasesFile, 'utf8'));
-    } catch (err) {
-      // File doesn't exist, start with empty array
+    // Also add to users storage if not already there
+    if (customerEmail && !usersStorage[customerEmail.toLowerCase()]) {
+      usersStorage[customerEmail.toLowerCase()] = {
+        email: customerEmail,
+        name: customerName || 'Customer',
+        businessName: (customerName || 'Customer') + ' Business',
+        isAdmin: false,
+        emailVerified: true,
+        createdAt: new Date().toISOString(),
+        projects: []
+      };
     }
-    
-    purchases.push({
-      ...purchaseData,
-      timestamp: new Date().toISOString(),
-      processed: false
-    });
-    
-    fs.writeFileSync(purchasesFile, JSON.stringify(purchases, null, 2));
-    console.log('💾 Purchase saved to file');
 
-    // Trigger the existing purchase processing logic
-    const result = triggerPurchaseProcessing(purchaseData);
-    
-    // Mark as processed if successful
-    if (result && result.success) {
-      purchase.processed = true;
-      fs.writeFileSync(purchasesFile, JSON.stringify(purchases, null, 2));
-      console.log('✅ Purchase marked as processed');
-    }
+    console.log('💾 Customer data stored in memory');
+    console.log('📊 Total customers:', Object.keys(customerDataStorage).length);
+    console.log('📊 Total users:', Object.keys(usersStorage).length);
 
   } catch (error) {
     console.error('❌ Error processing purchase:', error);
   }
 }
 
-// Function to trigger the existing purchase processing logic
-function triggerPurchaseProcessing(purchaseData) {
-  try {
-    // Import the existing purchase handler
-    const { handleSuccessfulPurchase } = require('./purchaseHandler.js');
-    
-    // Create a mock purchase event that matches the existing logic
-    const mockPurchaseEvent = {
-      customerEmail: purchaseData.customerEmail,
-      customerName: purchaseData.customerName,
-      packageName: purchaseData.packageName,
-      amount: purchaseData.amount,
-      stripeSessionId: purchaseData.stripeSessionId
-    };
+// Helper functions for project data
+function getProjectType(packageName) {
+  const types = {
+    'Map PowerBoost': 'Google Maps Optimization',
+    'Cloud Stack Boost': 'Advanced Maps Integration',
+    'Local Citations': 'Citation Building',
+    'Platinum Local SEO': 'Comprehensive Local SEO',
+    'Test': 'Test Service'
+  };
+  return types[packageName] || 'Local SEO';
+}
 
-    // Call the existing purchase handler
-    handleSuccessfulPurchase(mockPurchaseEvent);
-    
-    console.log('🔄 Triggered existing purchase processing logic');
-    
-  } catch (error) {
-    console.error('❌ Error triggering purchase processing:', error);
-  }
+function getProjectCategory(packageName) {
+  const categories = {
+    'Map PowerBoost': 'Local SEO',
+    'Cloud Stack Boost': 'Technical SEO',
+    'Local Citations': 'Local SEO',
+    'Platinum Local SEO': 'Local SEO',
+    'Test': 'Test'
+  };
+  return categories[packageName] || 'Local SEO';
+}
+
+function getProjectRequirements(packageName) {
+  const requirements = {
+    'Map PowerBoost': ['Business Information', 'Service Areas', 'Target Keywords'],
+    'Cloud Stack Boost': ['Website Access', 'Business Details', 'Target Locations'],
+    'Local Citations': ['Business Information', 'Service Categories', 'Local Areas'],
+    'Platinum Local SEO': ['Business Information', 'Service Areas', 'Target Keywords', 'Website Access'],
+    'Test': ['Test Requirements']
+  };
+  return requirements[packageName] || ['Business Information'];
+}
+
+function getProjectDeliverables(packageName) {
+  const deliverables = {
+    'Map PowerBoost': ['GMB Optimization', 'Map Rankings', 'Traffic Reports'],
+    'Cloud Stack Boost': ['Cloud Stack Setup', 'Map Embeds', 'Performance Analytics'],
+    'Local Citations': ['Citation Listings', 'Consistency Reports', 'Local Rankings'],
+    'Platinum Local SEO': ['GMB Optimization', 'Citation Building', 'Map Rankings', 'Traffic Reports'],
+    'Test': ['Test Deliverables']
+  };
+  return deliverables[packageName] || ['SEO Optimization'];
 }
 
 // API endpoint to get pending purchases
