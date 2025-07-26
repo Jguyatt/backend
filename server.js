@@ -255,6 +255,97 @@ app.post('/api/sync-data', (req, res) => {
   }
 });
 
+// Test endpoint to manually create customer data (for testing only)
+app.post('/api/test/create-customer', (req, res) => {
+  try {
+    const { email, name, packageName, amount } = req.body;
+    
+    const customerData = {
+      name: name || 'Test Customer',
+      email: email || 'test@example.com',
+      business: name + ' Business',
+      package: packageName || 'Test',
+      monthlyRate: amount || 1,
+      activeProjects: [
+        {
+          id: Date.now(),
+          name: `${packageName || 'Test'} Package`,
+          status: 'Active',
+          startDate: new Date().toISOString().split('T')[0],
+          progress: 20,
+          nextUpdate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          type: 'SEO',
+          category: 'Local SEO',
+          requirements: ['Business Information', 'Service Details'],
+          estimatedDuration: '30 days',
+          deliverables: ['SEO Optimization', 'Rankings Report']
+        }
+      ],
+      orderTimeline: {
+        orderPlaced: {
+          status: 'completed',
+          date: new Date().toISOString().split('T')[0],
+          completed: true
+        },
+        onboardingForm: {
+          status: 'pending',
+          date: null,
+          completed: false
+        },
+        orderInProgress: {
+          status: 'pending',
+          date: null,
+          completed: false
+        },
+        reviewDelivery: {
+          status: 'pending',
+          date: null,
+          completed: false
+        },
+        orderComplete: {
+          status: 'pending',
+          date: null,
+          completed: false
+        }
+      },
+      recentActivity: [
+        { 
+          type: 'purchase_completed', 
+          message: `Purchase completed: ${packageName || 'Test'} Package`, 
+          date: new Date().toISOString().split('T')[0] 
+        }
+      ],
+      subscription: {
+        status: 'Active',
+        plan: `${packageName || 'Test'} Package`,
+        monthlyRate: amount || 1,
+        nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      },
+      billing: {
+        plan: `${packageName || 'Test'} Package`,
+        amount: `$${amount || 1}`,
+        nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        status: 'Active'
+      },
+      stripeCustomerId: 'cus_test_' + Date.now(),
+      stripeSessionId: 'cs_test_' + Date.now()
+    };
+    
+    // Store the customer data
+    const existingData = readStorage('customerData.json') || {};
+    const customerKey = `customer-${email.replace(/[^a-zA-Z0-9]/g, '-')}`;
+    existingData[customerKey] = customerData;
+    writeStorage('customerData.json', existingData);
+    
+    console.log('✅ Test customer created:', email);
+    res.json({ success: true, customerData });
+    
+  } catch (error) {
+    console.error('❌ Error creating test customer:', error);
+    res.status(500).json({ error: 'Failed to create test customer' });
+  }
+});
+
 // Helper functions for file-based storage
 function readStorage(filename) {
   try {
