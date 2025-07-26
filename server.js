@@ -346,32 +346,33 @@ app.post('/api/test/create-customer', (req, res) => {
   }
 });
 
-// Helper functions for file-based storage
+// Simple in-memory storage for testing (will be replaced with database in production)
+let customerDataStorage = {};
+let usersStorage = {};
+let onboardingSubmissionsStorage = [];
+
+// Helper functions for in-memory storage
 function readStorage(filename) {
-  try {
-    const filePath = path.join(__dirname, 'data', filename);
-    if (fs.existsSync(filePath)) {
-      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    }
-  } catch (error) {
-    console.error(`Error reading ${filename}:`, error);
-  }
+  if (filename === 'customerData.json') return customerDataStorage;
+  if (filename === 'users.json') return usersStorage;
+  if (filename === 'onboarding-submissions.json') return onboardingSubmissionsStorage;
   return null;
 }
 
 function writeStorage(filename, data) {
-  try {
-    const dataDir = path.join(__dirname, 'data');
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-    const filePath = path.join(dataDir, filename);
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-    return true;
-  } catch (error) {
-    console.error(`Error writing ${filename}:`, error);
-    return false;
+  if (filename === 'customerData.json') {
+    customerDataStorage = data;
+    console.log('💾 Customer data stored:', Object.keys(customerDataStorage).length, 'customers');
   }
+  if (filename === 'users.json') {
+    usersStorage = data;
+    console.log('💾 Users stored:', Object.keys(usersStorage).length, 'users');
+  }
+  if (filename === 'onboarding-submissions.json') {
+    onboardingSubmissionsStorage = data;
+    console.log('💾 Onboarding submissions stored:', onboardingSubmissionsStorage.length, 'submissions');
+  }
+  return true;
 }
 
 // Health check endpoint
