@@ -985,7 +985,8 @@ app.get('*', (req, res) => {
       '/api/onboarding-submissions',
       '/api/all-customers',
       '/api/sync-data'
-    ]
+    ],
+    timestamp: new Date().toISOString() // Force deployment update
   });
 });
 
