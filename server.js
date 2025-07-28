@@ -11,7 +11,6 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(cors());
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }));
-app.use(express.static(path.join(__dirname, 'build')));
 
 // Stripe webhook endpoint
 app.post('/api/webhooks/stripe', (req, res) => {
@@ -972,9 +971,19 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Serve React app
+// 404 handler for non-API routes
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+  res.status(404).json({ 
+    error: 'Not Found',
+    message: 'This is an API server. Please use the frontend application.',
+    availableEndpoints: [
+      '/api/health',
+      '/api/webhooks/stripe',
+      '/api/onboarding-submissions',
+      '/api/all-customers',
+      '/api/sync-data'
+    ]
+  });
 });
 
 app.listen(PORT, () => {
