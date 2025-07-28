@@ -319,32 +319,35 @@ app.get('/api/all-customers', (req, res) => {
   }
 });
 
-// Endpoint to sync customer data from frontend
+// Endpoint to sync data from frontend (both user and customer data)
 app.post('/api/sync-data', (req, res) => {
   try {
-    const { email, customerData } = req.body;
+    const { email, customerData, userData } = req.body;
     
-    if (!email || !customerData) {
-      return res.status(400).json({ error: 'Email and customer data are required' });
+    console.log('🔄 Syncing data to backend:', { email, hasCustomerData: !!customerData, hasUserData: !!userData });
+    
+    // Handle user data (from signup)
+    if (userData) {
+      const existingUsers = readStorage('users.json') || {};
+      existingUsers[userData.email.toLowerCase()] = userData;
+      writeStorage('users.json', existingUsers);
+      console.log('✅ User data synced:', userData.email);
     }
     
-    console.log('🔄 Syncing customer data for:', email);
+    // Handle customer data (from purchases - only if it has active projects)
+    if (email && customerData && customerData.activeProjects && customerData.activeProjects.length > 0) {
+      const existingData = readStorage('customerData.json') || {};
+      const customerKey = `customer-${email.replace(/[^a-zA-Z0-9]/g, '-')}`;
+      existingData[customerKey] = customerData;
+      writeStorage('customerData.json', existingData);
+      console.log('✅ Customer data synced:', email);
+    }
     
-    // Get existing customer data
-    const existingCustomerData = readStorage('customerData.json') || {};
-    
-    // Update customer data
-    existingCustomerData[email.toLowerCase()] = customerData;
-    
-    // Save to storage
-    writeStorage('customerData.json', existingCustomerData);
-    
-    console.log('✅ Customer data synced successfully for:', email);
-    res.json({ success: true, message: 'Customer data synced successfully' });
+    res.json({ success: true, message: 'Data synced successfully' });
     
   } catch (error) {
-    console.error('❌ Error syncing customer data:', error);
-    res.status(500).json({ error: 'Failed to sync customer data' });
+    console.error('❌ Error syncing data:', error);
+    res.status(500).json({ error: 'Failed to sync data' });
   }
 });
 
