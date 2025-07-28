@@ -161,8 +161,9 @@ function processPurchase(session) {
     
     // Also add to users storage if not already there
     const existingUsers = readStorage('users.json') || {};
-    if (customerEmail && !existingUsers[customerEmail.toLowerCase()]) {
-      existingUsers[customerEmail.toLowerCase()] = {
+    const userEmailKey = customerEmail?.toLowerCase();
+    if (customerEmail && !existingUsers[userEmailKey]) {
+      existingUsers[userEmailKey] = {
         email: customerEmail,
         name: customerName || 'Customer',
         businessName: (customerName || 'Customer') + ' Business',
@@ -177,7 +178,14 @@ function processPurchase(session) {
     console.log('💾 Customer data stored using storage system');
     console.log('📊 Total customers:', Object.keys(existingCustomerData).length);
     console.log('📊 Total users:', Object.keys(existingUsers).length);
-
+    
+    // Dispatch newPurchase event for admin dashboard
+    console.log('🎉 New purchase processed successfully!');
+    console.log('📧 Customer Email:', customerEmail);
+    console.log('👤 Customer Name:', customerName);
+    console.log('📦 Package:', packageName);
+    console.log('💰 Amount:', amount);
+    
   } catch (error) {
     console.error('❌ Error processing purchase:', error);
   }
@@ -312,32 +320,32 @@ app.get('/api/all-customers', (req, res) => {
   }
 });
 
-// API endpoint to sync frontend data with backend
+// Endpoint to sync customer data from frontend
 app.post('/api/sync-data', (req, res) => {
   try {
-    const { email, customerData, userData } = req.body;
+    const { email, customerData } = req.body;
     
-    // Handle user data (from signup)
-    if (userData) {
-      const existingUsers = readStorage('users.json') || {};
-      existingUsers[userData.email.toLowerCase()] = userData;
-      writeStorage('users.json', existingUsers);
-      console.log('✅ User data synced:', userData.email);
+    if (!email || !customerData) {
+      return res.status(400).json({ error: 'Email and customer data are required' });
     }
     
-    // Handle customer data (from purchases - only if it has active projects)
-    if (email && customerData && customerData.activeProjects && customerData.activeProjects.length > 0) {
-      const existingData = readStorage('customerData.json') || {};
-      const customerKey = `customer-${email.replace(/[^a-zA-Z0-9]/g, '-')}`;
-      existingData[customerKey] = customerData;
-      writeStorage('customerData.json', existingData);
-      console.log('✅ Customer data synced:', email);
-    }
+    console.log('🔄 Syncing customer data for:', email);
     
-    res.json({ success: true, message: 'Data synced successfully' });
+    // Get existing customer data
+    const existingCustomerData = readStorage('customerData.json') || {};
+    
+    // Update customer data
+    existingCustomerData[email.toLowerCase()] = customerData;
+    
+    // Save to storage
+    writeStorage('customerData.json', existingCustomerData);
+    
+    console.log('✅ Customer data synced successfully for:', email);
+    res.json({ success: true, message: 'Customer data synced successfully' });
+    
   } catch (error) {
-    console.error('❌ Error syncing data:', error);
-    res.status(500).json({ error: 'Failed to sync data' });
+    console.error('❌ Error syncing customer data:', error);
+    res.status(500).json({ error: 'Failed to sync customer data' });
   }
 });
 
@@ -361,6 +369,37 @@ app.post('/api/onboarding-submission', (req, res) => {
   } catch (error) {
     console.error('❌ Error saving onboarding submission:', error);
     res.status(500).json({ error: 'Failed to save onboarding submission' });
+  }
+});
+
+// Endpoint to get all onboarding submissions
+app.get('/api/onboarding-submissions', (req, res) => {
+  try {
+    const submissions = readStorage('onboarding-submissions.json') || [];
+    res.json({ success: true, submissions });
+  } catch (error) {
+    console.error('❌ Error retrieving onboarding submissions:', error);
+    res.status(500).json({ error: 'Failed to retrieve onboarding submissions' });
+  }
+});
+
+// Endpoint to get all customers and users
+app.get('/api/all-customers', (req, res) => {
+  try {
+    const customerData = readStorage('customerData.json') || {};
+    const users = readStorage('users.json') || {};
+    const onboardingSubmissions = readStorage('onboarding-submissions.json') || [];
+    const deletedUsers = readStorage('deletedUsers.json') || [];
+    
+    res.json({
+      success: true,
+      customers: customerData,
+      users: users,
+      onboardingSubmissions: onboardingSubmissions,
+      deletedUsers: deletedUsers
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to load customer data' });
   }
 });
 
@@ -502,9 +541,9 @@ app.post('/api/process-cancellation', (req, res) => {
 // Endpoint to handle project cancellation
 app.post('/api/cancel-project', (req, res) => {
   try {
-    const { customerEmail, projectId, cancelledBy } = req.body;
+    const { customerEmail, projectId, cancelledBy, isTestPackage } = req.body;
     
-    console.log('🚫 Cancelling project:', { customerEmail, projectId, cancelledBy });
+    console.log('🚫 Cancelling project:', { customerEmail, projectId, cancelledBy, isTestPackage });
     
     // Get existing customer data
     const customerData = readStorage('customerData.json') || {};
@@ -532,27 +571,45 @@ app.post('/api/cancel-project', (req, res) => {
         const cancelledProject = customer.activeProjects.find(project => project.id == projectId);
         
         if (cancelledProject) {
-          // Calculate billing period end date (30 days from now)
-          const billingEndDate = new Date();
-          billingEndDate.setDate(billingEndDate.getDate() + 30);
-          
-          // Move project to completed projects with billing end date
-          if (!customer.completedProjects) customer.completedProjects = [];
-          customer.completedProjects.push({
-            ...cancelledProject,
-            status: 'Cancelled',
-            cancelledDate: new Date().toISOString(),
-            cancelledBy: cancelledBy || 'Admin',
-            completedDate: new Date().toISOString(),
-            billingEndDate: billingEndDate.toISOString(),
-            cancellationReason: cancelledBy === 'Customer' ? 'Customer requested cancellation' : 'Cancelled by admin'
-          });
-          
-          // Remove from active projects
-          customer.activeProjects = customer.activeProjects.filter(project => project.id != projectId);
-          
-          console.log('✅ Project moved to completed projects and removed from active projects');
-          console.log('📅 Billing period ends:', billingEndDate.toLocaleDateString());
+          if (isTestPackage) {
+            // For TEST package (one-time payment) - remove immediately
+            if (!customer.completedProjects) customer.completedProjects = [];
+            customer.completedProjects.push({
+              ...cancelledProject,
+              status: 'Cancelled',
+              cancelledDate: new Date().toISOString(),
+              cancelledBy: cancelledBy || 'Admin',
+              completedDate: new Date().toISOString(),
+              cancellationReason: 'Customer requested cancellation (one-time payment)'
+            });
+            
+            // Remove from active projects immediately
+            customer.activeProjects = customer.activeProjects.filter(project => project.id != projectId);
+            
+            console.log('✅ Test project cancelled and removed immediately');
+          } else {
+            // For monthly subscriptions - keep for 30 days
+            const billingEndDate = new Date();
+            billingEndDate.setDate(billingEndDate.getDate() + 30);
+            
+            // Move project to completed projects with billing end date
+            if (!customer.completedProjects) customer.completedProjects = [];
+            customer.completedProjects.push({
+              ...cancelledProject,
+              status: 'Cancelled',
+              cancelledDate: new Date().toISOString(),
+              cancelledBy: cancelledBy || 'Admin',
+              completedDate: new Date().toISOString(),
+              billingEndDate: billingEndDate.toISOString(),
+              cancellationReason: cancelledBy === 'Customer' ? 'Customer requested cancellation' : 'Cancelled by admin'
+            });
+            
+            // Remove from active projects
+            customer.activeProjects = customer.activeProjects.filter(project => project.id != projectId);
+            
+            console.log('✅ Project moved to completed projects and removed from active projects');
+            console.log('📅 Billing period ends:', billingEndDate.toLocaleDateString());
+          }
         }
       }
       
@@ -561,7 +618,7 @@ app.post('/api/cancel-project', (req, res) => {
       customer.recentActivity.unshift({
         id: Date.now(),
         type: 'project_cancelled',
-        message: `Project cancelled by ${cancelledBy || 'Admin'}`,
+        message: isTestPackage ? 'Test project cancelled by customer' : `Project cancelled by ${cancelledBy || 'Admin'}`,
         timestamp: new Date().toISOString(),
         projectId: projectId
       });
@@ -587,7 +644,8 @@ app.post('/api/cancel-project', (req, res) => {
       res.json({ 
         success: true, 
         message: 'Project cancelled successfully',
-        billingEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        isTestPackage: isTestPackage,
+        billingEndDate: isTestPackage ? null : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
       });
       
     } else {
