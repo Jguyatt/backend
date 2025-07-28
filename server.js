@@ -816,54 +816,53 @@ app.post('/api/cleanup-test-data', (req, res) => {
 });
 
 // Delete user endpoint
-app.post('/api/delete-user', async (req, res) => {
+app.delete('/api/delete-user/:email', async (req, res) => {
   try {
-    const { email } = req.body;
-    
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
-    }
-    
+    const email = req.params.email;
     console.log('🗑️ Deleting user:', email);
     
-    // Remove from users storage
+    // Get current data
+    const usersStorage = readStorage('users.json') || {};
+    const customerDataStorage = readStorage('customerData.json') || {};
+    const onboardingSubmissionsStorage = readStorage('onboarding-submissions.json') || [];
+    const deletedUsersStorage = readStorage('deletedUsers.json') || [];
+    
+    let userRemoved = false;
+    let customerRemoved = false;
+    let submissionsRemoved = 0;
+    
+    // Remove user
     if (usersStorage[email.toLowerCase()]) {
       delete usersStorage[email.toLowerCase()];
-      console.log('✅ User removed from users storage');
+      userRemoved = true;
     }
     
-    // Remove from customer data storage
-    let customerRemoved = false;
+    // Remove customer data
     for (const [key, customer] of Object.entries(customerDataStorage)) {
       if (customer.email && customer.email.toLowerCase() === email.toLowerCase()) {
         delete customerDataStorage[key];
         customerRemoved = true;
-        console.log('✅ Customer data removed for:', email);
       }
     }
     
-    // Remove from onboarding submissions
-    let submissionsRemoved = 0;
+    // Remove onboarding submissions
     const updatedSubmissions = onboardingSubmissionsStorage.filter(submission => {
-      if (submission.email && submission.email.toLowerCase() === email.toLowerCase()) {
+      if (submission.customerEmail && submission.customerEmail.toLowerCase() === email.toLowerCase()) {
         submissionsRemoved++;
-        return false; // Remove this submission
+        return false;
       }
-      return true; // Keep this submission
+      return true;
     });
     
-    if (submissionsRemoved > 0) {
-      onboardingSubmissionsStorage.length = 0;
-      onboardingSubmissionsStorage.push(...updatedSubmissions);
-      console.log(`✅ Removed ${submissionsRemoved} onboarding submissions for:`, email);
-    }
-
-    // Add to deleted users storage
+    // Clear and update submissions
+    onboardingSubmissionsStorage.length = 0;
+    onboardingSubmissionsStorage.push(...updatedSubmissions);
+    
+    // Add to deleted users list
     deletedUsersStorage.push({
       email: email,
       timestamp: new Date().toISOString()
     });
-    console.log('✅ Added to deleted users storage:', email);
     
     // Save updated data - properly call writeStorage for each data type
     writeStorage('customerData.json', customerDataStorage);
@@ -875,10 +874,10 @@ app.post('/api/delete-user', async (req, res) => {
       success: true, 
       message: 'User deleted successfully',
       removed: {
-        user: !!usersStorage[email.toLowerCase()],
+        user: userRemoved,
         customerData: customerRemoved,
         submissions: submissionsRemoved,
-        deletedUsers: deletedUsersStorage
+        deletedUsers: deletedUsersStorage.length
       }
     });
     
@@ -891,6 +890,7 @@ app.post('/api/delete-user', async (req, res) => {
 // Get deleted users endpoint
 app.get('/api/deleted-users', async (req, res) => {
   try {
+    const deletedUsersStorage = readStorage('deletedUsers.json') || [];
     console.log('📋 Getting deleted users:', deletedUsersStorage.length, 'users');
     res.json({ 
       success: true, 
@@ -902,45 +902,64 @@ app.get('/api/deleted-users', async (req, res) => {
   }
 });
 
-// Simple in-memory storage for testing (will be replaced with database in production)
-let customerDataStorage = {};
-let usersStorage = {};
-let onboardingSubmissionsStorage = [];
-let deletedUsersStorage = []; // Track deleted users
+// File-based storage for production (persists across restarts)
+const fs = require('fs');
+const path = require('path');
 
-// Helper functions for in-memory storage
+// Helper functions for file-based storage
 function readStorage(filename) {
-  if (filename === 'customerData.json') return customerDataStorage;
-  if (filename === 'users.json') return usersStorage;
-  if (filename === 'onboarding-submissions.json') return onboardingSubmissionsStorage;
-  if (filename === 'deletedUsers.json') return deletedUsersStorage; // Added for deleted users
-  if (filename === 'cancellation-requests.json') return []; // Added for cancellation requests
+  try {
+    const filePath = path.join(__dirname, 'data', filename);
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error(`❌ Error reading ${filename}:`, error);
+  }
+  
+  // Return default empty data based on filename
+  if (filename === 'customerData.json') return {};
+  if (filename === 'users.json') return {};
+  if (filename === 'onboarding-submissions.json') return [];
+  if (filename === 'deletedUsers.json') return [];
+  if (filename === 'cancellation-requests.json') return [];
   return null;
 }
 
 function writeStorage(filename, data) {
-  if (filename === 'customerData.json') {
-    customerDataStorage = data;
-    console.log('💾 Customer data stored:', Object.keys(customerDataStorage).length, 'customers');
+  try {
+    // Ensure data directory exists
+    const dataDir = path.join(__dirname, 'data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    
+    const filePath = path.join(dataDir, filename);
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    
+    // Log storage info
+    if (filename === 'customerData.json') {
+      console.log('💾 Customer data stored:', Object.keys(data).length, 'customers');
+    }
+    if (filename === 'users.json') {
+      console.log('💾 Users stored:', Object.keys(data).length, 'users');
+    }
+    if (filename === 'onboarding-submissions.json') {
+      console.log('💾 Onboarding submissions stored:', data.length, 'submissions');
+    }
+    if (filename === 'deletedUsers.json') {
+      console.log('💾 Deleted users stored:', data.length, 'deleted users');
+    }
+    if (filename === 'cancellation-requests.json') {
+      console.log('💾 Cancellation requests stored:', data.length, 'requests');
+    }
+    
+    return true;
+  } catch (error) {
+    console.error(`❌ Error writing ${filename}:`, error);
+    return false;
   }
-  if (filename === 'users.json') {
-    usersStorage = data;
-    console.log('💾 Users stored:', Object.keys(usersStorage).length, 'users');
-  }
-  if (filename === 'onboarding-submissions.json') {
-    onboardingSubmissionsStorage = data;
-    console.log('💾 Onboarding submissions stored:', onboardingSubmissionsStorage.length, 'submissions');
-  }
-  if (filename === 'deletedUsers.json') { // Added for deleted users
-    deletedUsersStorage = data;
-    console.log('💾 Deleted users stored:', deletedUsersStorage.length, 'deleted users');
-  }
-  if (filename === 'cancellation-requests.json') { // Added for cancellation requests
-    // In-memory storage for cancellation requests, no file writing needed for this example
-    // For a real application, you'd write to a file here
-    console.log('💾 Cancellation requests stored in memory:', data.length, 'requests');
-  }
-  return true;
 }
 
 // Health check endpoint
