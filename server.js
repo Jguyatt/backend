@@ -968,7 +968,7 @@ function writeStorage(filename, data) {
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'healthy', 
-    message: 'Server is running!',
+    message: 'Server is running with UPDATED CODE!',
     version: '2.0.0', // Force deployment update
     webhookEndpoint: `/api/webhooks/stripe`,
     timestamp: new Date().toISOString()
