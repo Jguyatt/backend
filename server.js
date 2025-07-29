@@ -947,7 +947,6 @@ app.delete('/api/customers/:email', (req, res) => {
 
 // File-based storage for production (persists across restarts)
 const fs = require('fs');
-const path = require('path');
 
 // Helper functions for file-based storage
 function readStorage(filename) {
