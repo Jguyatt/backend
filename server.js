@@ -904,6 +904,31 @@ app.get('/api/deleted-users', async (req, res) => {
   }
 });
 
+// Endpoint to delete a customer
+app.delete('/api/customers/:email', (req, res) => {
+  try {
+    const email = req.params.email;
+    console.log('🗑️ Deleting customer:', email);
+    
+    // Get existing customer data
+    const existingCustomerData = readStorage('customerData.json') || {};
+    
+    // Remove the customer
+    if (existingCustomerData[email]) {
+      delete existingCustomerData[email];
+      writeStorage('customerData.json', existingCustomerData);
+      console.log('✅ Customer deleted:', email);
+      res.json({ success: true, message: 'Customer deleted successfully' });
+    } else {
+      res.status(404).json({ error: 'Customer not found' });
+    }
+    
+  } catch (error) {
+    console.error('❌ Error deleting customer:', error);
+    res.status(500).json({ error: 'Failed to delete customer' });
+  }
+});
+
 // File-based storage for production (persists across restarts)
 const fs = require('fs');
 const path = require('path');
