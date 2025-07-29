@@ -287,10 +287,25 @@ app.get('/api/customer-data/:email', (req, res) => {
   try {
     const email = req.params.email;
     const customerData = readStorage('customerData.json') || {};
-    const customerKey = `customer-${email.replace(/[^a-zA-Z0-9]/g, '-')}`;
     
-    if (customerData[customerKey]) {
-      res.json({ success: true, data: customerData[customerKey] });
+    // Try multiple possible key formats
+    let customer = null;
+    
+    // First try the email directly
+    if (customerData[email]) {
+      customer = customerData[email];
+    }
+    // Then try the customer- format
+    else if (customerData[`customer-${email.replace(/[^a-zA-Z0-9]/g, '-')}`]) {
+      customer = customerData[`customer-${email.replace(/[^a-zA-Z0-9]/g, '-')}`];
+    }
+    // Finally try with lowercase
+    else if (customerData[email.toLowerCase()]) {
+      customer = customerData[email.toLowerCase()];
+    }
+    
+    if (customer) {
+      res.json({ success: true, data: customer });
     } else {
       res.json({ success: false, error: 'Customer not found' });
     }
