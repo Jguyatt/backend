@@ -334,11 +334,10 @@ app.post('/api/sync-data', (req, res) => {
       console.log('✅ User data synced:', userData.email);
     }
     
-    // Handle customer data (from purchases - only if it has active projects)
-    if (email && customerData && customerData.activeProjects && customerData.activeProjects.length > 0) {
+    // Handle customer data (from signups and purchases)
+    if (email && customerData) {
       const existingData = readStorage('customerData.json') || {};
-      const customerKey = `customer-${email.replace(/[^a-zA-Z0-9]/g, '-')}`;
-      existingData[customerKey] = customerData;
+      existingData[email.toLowerCase()] = customerData;
       writeStorage('customerData.json', existingData);
       console.log('✅ Customer data synced:', email);
     }
