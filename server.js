@@ -817,6 +817,22 @@ app.post('/api/cleanup-test-data', (req, res) => {
   }
 });
 
+// Endpoint to clear all customers (for testing)
+app.post('/api/clear-customers', (req, res) => {
+  try {
+    console.log('🗑️ Clearing all customers');
+    
+    // Clear customer data
+    writeStorage('customerData.json', {});
+    console.log('✅ All customers cleared');
+    res.json({ success: true, message: 'All customers cleared successfully' });
+    
+  } catch (error) {
+    console.error('❌ Error clearing customers:', error);
+    res.status(500).json({ error: 'Failed to clear customers' });
+  }
+});
+
 // Delete user endpoint
 app.delete('/api/delete-user/:email', async (req, res) => {
   try {
