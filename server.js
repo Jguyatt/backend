@@ -1094,6 +1094,91 @@ function writeStorage(filename, data) {
   }
 }
 
+// Data recovery and initialization
+function initializeDataIfEmpty() {
+  console.log('🔍 Checking for existing data...');
+  
+  const customerData = readStorage('customerData.json');
+  const users = readStorage('users.json');
+  
+  // If no data exists, create sample data
+  if (Object.keys(customerData).length === 0 && Object.keys(users).length === 0) {
+    console.log('⚠️  No existing data found. Creating sample data...');
+    
+    // Create sample customer data
+    const sampleCustomerData = {
+      'tryranklyai@gmail.com': {
+        name: 'Jacob Guyatt',
+        email: 'tryranklyai@gmail.com',
+        business: 'Rankly360 Business',
+        package: 'Test Package',
+        totalAmount: 1,
+        activeProjects: [
+          {
+            id: Date.now(),
+            name: 'Test Package',
+            status: 'Active',
+            startDate: new Date().toISOString().split('T')[0],
+            progress: 20,
+            nextUpdate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            type: 'Local SEO',
+            category: 'Google Business Profile',
+            requirements: ['Business information', 'Service area', 'Contact details'],
+            estimatedDuration: '30 days',
+            deliverables: ['Optimized GBP', 'Local citations', 'Review management'],
+            currentPhase: 'Onboarding',
+            nextMilestone: 'Complete onboarding form'
+          }
+        ],
+        orderTimeline: {
+          orderPlaced: { completed: true, status: 'completed', date: new Date().toISOString().split('T')[0] },
+          onboardingForm: { completed: false, status: 'pending_approval', date: new Date().toISOString().split('T')[0] },
+          orderInProgress: { completed: false, status: 'pending', date: null },
+          reviewDelivery: { completed: false, status: 'pending', date: null },
+          orderComplete: { completed: false, status: 'pending', date: null }
+        },
+        recentActivity: [
+          {
+            type: 'project_started',
+            message: 'Test project started',
+            date: new Date().toISOString().split('T')[0]
+          }
+        ]
+      }
+    };
+    
+    // Create sample user data
+    const sampleUsers = {
+      'tryranklyai@gmail.com': {
+        name: 'Jacob Guyatt',
+        email: 'tryranklyai@gmail.com',
+        password: 'password123', // This should be hashed in production
+        business: 'Rankly360 Business',
+        businessName: 'Rankly360 Business',
+        firstName: 'Jacob',
+        lastName: 'Guyatt',
+        isAdmin: false,
+        emailVerified: true,
+        createdAt: new Date().toISOString()
+      }
+    };
+    
+    // Save sample data
+    writeStorage('customerData.json', sampleCustomerData);
+    writeStorage('users.json', sampleUsers);
+    writeStorage('onboarding-submissions.json', []);
+    writeStorage('deletedUsers.json', []);
+    writeStorage('cancellation-requests.json', []);
+    
+    console.log('✅ Sample data created successfully');
+    console.log('📊 Sample customer: tryranklyai@gmail.com');
+    console.log('👤 Sample user: tryranklyai@gmail.com');
+    console.log('🔑 Sample password: password123');
+  } else {
+    console.log('✅ Existing data found, no initialization needed');
+  }
+}
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -1205,4 +1290,7 @@ app.listen(PORT, () => {
   console.log(`📊 Purchases API: http://localhost:${PORT}/api/purchases`);
   console.log(`❤️  Health check: http://localhost:${PORT}/api/health`);
   console.log(`⚠️  Make sure to set STRIPE_WEBHOOK_SECRET environment variable`);
+  
+  // Initialize data if empty (for Railway deployments)
+  initializeDataIfEmpty();
 }); 
