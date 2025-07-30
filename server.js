@@ -1170,10 +1170,32 @@ function initializeDataIfEmpty() {
     writeStorage('deletedUsers.json', []);
     writeStorage('cancellation-requests.json', []);
     
+    // Create sample chat messages
+    const sampleChatMessages = {
+      'tryranklyai@gmail.com': [
+        {
+          id: Date.now().toString(),
+          customerEmail: 'tryranklyai@gmail.com',
+          message: 'Hi Jacob! Welcome to Rankly360. I\'m here to help you with your local SEO campaign.',
+          sender: 'admin',
+          timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() // 1 day ago
+        },
+        {
+          id: (Date.now() + 1).toString(),
+          customerEmail: 'tryranklyai@gmail.com',
+          message: 'Your project has been set up and we\'re ready to get started. Please complete your onboarding form when you\'re ready.',
+          sender: 'admin',
+          timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString() // 12 hours ago
+        }
+      ]
+    };
+    writeStorage('chat-messages.json', sampleChatMessages);
+    
     console.log('✅ Sample data created successfully');
     console.log('📊 Sample customer: tryranklyai@gmail.com');
     console.log('👤 Sample user: tryranklyai@gmail.com');
     console.log('🔑 Sample password: password123');
+    console.log('💬 Sample chat messages created');
   } else {
     console.log('✅ Existing data found, no initialization needed');
   }
@@ -1293,4 +1315,4 @@ app.listen(PORT, () => {
   
   // Initialize data if empty (for Railway deployments)
   initializeDataIfEmpty();
-}); 
+});
