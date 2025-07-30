@@ -352,9 +352,36 @@ app.post('/api/sync-data', (req, res) => {
     // Handle customer data (from signups and purchases)
     if (email && customerData) {
       const existingData = readStorage('customerData.json') || {};
-      existingData[email.toLowerCase()] = customerData;
+      
+      // DUPLICATE PREVENTION: Check for existing entries with different keys
+      const emailLower = email.toLowerCase();
+      const oldFormatKey = `customer-${emailLower.replace('@', '-').replace('.', '-')}`;
+      
+      // Remove old format entry if it exists
+      if (existingData[oldFormatKey]) {
+        console.log('🔄 Removing old format entry:', oldFormatKey);
+        delete existingData[oldFormatKey];
+      }
+      
+      // Check for any other entries with the same email but different keys
+      const existingKeys = Object.keys(existingData);
+      const duplicateKeys = existingKeys.filter(key => {
+        const entry = existingData[key];
+        return entry && entry.email && entry.email.toLowerCase() === emailLower;
+      });
+      
+      // Remove all duplicate entries except the current one
+      duplicateKeys.forEach(key => {
+        if (key !== emailLower) {
+          console.log('🔄 Removing duplicate entry:', key);
+          delete existingData[key];
+        }
+      });
+      
+      // Save the new/updated entry with the correct key
+      existingData[emailLower] = customerData;
       writeStorage('customerData.json', existingData);
-      console.log('✅ Customer data synced:', email);
+      console.log('✅ Customer data synced (duplicates removed):', email);
     }
     
     res.json({ success: true, message: 'Data synced successfully' });
@@ -831,19 +858,64 @@ app.post('/api/cleanup-test-data', (req, res) => {
   }
 });
 
-// Endpoint to clear all customers (for testing)
+// Endpoint to clear all customer data (for testing/cleanup)
 app.post('/api/clear-customers', (req, res) => {
   try {
-    console.log('🗑️ Clearing all customers');
-    
-    // Clear customer data
     writeStorage('customerData.json', {});
-    console.log('✅ All customers cleared');
-    res.json({ success: true, message: 'All customers cleared successfully' });
+    writeStorage('users.json', {});
+    writeStorage('onboarding-submissions.json', []);
+    writeStorage('cancellation-requests.json', []);
+    writeStorage('deletedUsers.json', []);
+    console.log('🗑️ All customer data cleared');
+    res.json({ success: true, message: 'All customer data cleared' });
+  } catch (error) {
+    console.error('❌ Error clearing customer data:', error);
+    res.status(500).json({ error: 'Failed to clear customer data' });
+  }
+});
+
+// Endpoint to clean up duplicate entries
+app.post('/api/cleanup-duplicates', (req, res) => {
+  try {
+    const existingData = readStorage('customerData.json') || {};
+    const cleanedData = {};
+    const processedEmails = new Set();
+    
+    console.log('🧹 Starting duplicate cleanup...');
+    
+    // Process all entries and keep only the most recent one for each email
+    Object.entries(existingData).forEach(([key, entry]) => {
+      if (entry && entry.email) {
+        const emailLower = entry.email.toLowerCase();
+        
+        if (!processedEmails.has(emailLower)) {
+          // First occurrence of this email - keep it
+          cleanedData[emailLower] = entry;
+          processedEmails.add(emailLower);
+          console.log('✅ Kept entry for:', emailLower);
+        } else {
+          // Duplicate found - skip it
+          console.log('🗑️ Removed duplicate for:', emailLower);
+        }
+      }
+    });
+    
+    // Save cleaned data
+    writeStorage('customerData.json', cleanedData);
+    
+    const removedCount = Object.keys(existingData).length - Object.keys(cleanedData).length;
+    console.log(`🧹 Cleanup complete. Removed ${removedCount} duplicate entries.`);
+    
+    res.json({ 
+      success: true, 
+      message: `Cleanup complete. Removed ${removedCount} duplicate entries.`,
+      removedCount,
+      remainingEntries: Object.keys(cleanedData).length
+    });
     
   } catch (error) {
-    console.error('❌ Error clearing customers:', error);
-    res.status(500).json({ error: 'Failed to clear customers' });
+    console.error('❌ Error during cleanup:', error);
+    res.status(500).json({ error: 'Failed to cleanup duplicates' });
   }
 });
 
