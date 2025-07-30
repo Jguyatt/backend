@@ -69,8 +69,8 @@ function processPurchase(session) {
 
     // Determine package based on amount
     let packageName = 'Unknown Package';
-    if (amount === 249) packageName = 'Map PowerBoost';
-    else if (amount === 347) packageName = 'Cloud Stack Boost';
+    if (amount === 299) packageName = 'Map PowerBoost';
+    else if (amount === 349) packageName = 'Cloud Stack Boost';
     else if (amount === 299) packageName = 'Local Citations';
     else if (amount === 849) packageName = 'Platinum Local SEO';
     else if (amount === 1) packageName = 'Test';
@@ -81,7 +81,7 @@ function processPurchase(session) {
       email: customerEmail || 'customer@example.com',
       business: (customerName || 'Customer') + ' Business',
       package: packageName,
-      monthlyRate: amount,
+      totalAmount: amount,
       activeProjects: [
         {
           id: Date.now(),
@@ -134,7 +134,7 @@ function processPurchase(session) {
       subscription: {
         status: 'Active',
         plan: `${packageName} Package`,
-        monthlyRate: amount,
+        totalAmount: amount,
         nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       },
       billing: {
