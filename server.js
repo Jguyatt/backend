@@ -1052,6 +1052,7 @@ function readStorage(filename) {
   if (filename === 'onboarding-submissions.json') return [];
   if (filename === 'deletedUsers.json') return [];
   if (filename === 'cancellation-requests.json') return [];
+  if (filename === 'chat-messages.json') return {}; // Added for chat messages
   return null;
 }
 
@@ -1082,6 +1083,9 @@ function writeStorage(filename, data) {
     if (filename === 'cancellation-requests.json') {
       console.log('💾 Cancellation requests stored:', data.length, 'requests');
     }
+    if (filename === 'chat-messages.json') { // Added for chat messages
+      console.log('💾 Chat messages stored:', Object.keys(data).length, 'messages');
+    }
     
     return true;
   } catch (error) {
@@ -1111,10 +1115,88 @@ app.get('*', (req, res) => {
       '/api/webhooks/stripe',
       '/api/onboarding-submissions',
       '/api/all-customers',
-      '/api/sync-data'
+      '/api/sync-data',
+      '/api/chat-message',
+      '/api/chat-messages/:customerEmail'
     ],
     timestamp: new Date().toISOString() // Force deployment update
   });
+});
+
+// Chat endpoints
+app.post('/api/chat-message', (req, res) => {
+  try {
+    const { customerEmail, message, sender, timestamp } = req.body;
+    
+    if (!customerEmail || !message || !sender) {
+      return res.status(400).json({ error: 'Missing required fields: customerEmail, message, sender' });
+    }
+
+    // Read existing chat messages
+    const chatData = readStorage('chat-messages.json') || {};
+    
+    // Initialize customer's chat array if it doesn't exist
+    if (!chatData[customerEmail]) {
+      chatData[customerEmail] = [];
+    }
+    
+    // Add new message
+    const newMessage = {
+      id: Date.now().toString(),
+      customerEmail,
+      message,
+      sender,
+      timestamp: timestamp || new Date().toISOString()
+    };
+    
+    chatData[customerEmail].push(newMessage);
+    
+    // Save to file
+    writeStorage('chat-messages.json', chatData);
+    
+    console.log('💬 Chat message saved:', {
+      customerEmail,
+      message: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
+      sender,
+      timestamp: newMessage.timestamp
+    });
+    
+    res.json({ 
+      success: true, 
+      message: 'Message sent successfully',
+      messageId: newMessage.id
+    });
+    
+  } catch (error) {
+    console.error('❌ Error saving chat message:', error);
+    res.status(500).json({ error: 'Failed to save message' });
+  }
+});
+
+app.get('/api/chat-messages/:customerEmail', (req, res) => {
+  try {
+    const { customerEmail } = req.params;
+    
+    if (!customerEmail) {
+      return res.status(400).json({ error: 'Customer email is required' });
+    }
+    
+    // Read chat messages
+    const chatData = readStorage('chat-messages.json') || {};
+    const customerMessages = chatData[customerEmail] || [];
+    
+    console.log('💬 Retrieved chat messages for:', customerEmail, 'Count:', customerMessages.length);
+    
+    res.json({ 
+      success: true,
+      messages: customerMessages,
+      count: customerMessages.length
+    });
+    
+  } catch (error) {
+    console.error('❌ Error retrieving chat messages:', error);
+    res.status(500).json({ error: 'Failed to retrieve messages' });
+  }
 });
 
 app.listen(PORT, () => {
