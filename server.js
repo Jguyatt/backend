@@ -1105,24 +1105,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// 404 handler for non-API routes
-app.get('*', (req, res) => {
-  res.status(404).json({ 
-    error: 'Not Found',
-    message: 'This is an API server. Please use the frontend application.',
-    availableEndpoints: [
-      '/api/health',
-      '/api/webhooks/stripe',
-      '/api/onboarding-submissions',
-      '/api/all-customers',
-      '/api/sync-data',
-      '/api/chat-message',
-      '/api/chat-messages/:customerEmail'
-    ],
-    timestamp: new Date().toISOString() // Force deployment update
-  });
-});
-
 // Chat endpoints
 app.post('/api/chat-message', (req, res) => {
   try {
@@ -1197,6 +1179,24 @@ app.get('/api/chat-messages/:customerEmail', (req, res) => {
     console.error('❌ Error retrieving chat messages:', error);
     res.status(500).json({ error: 'Failed to retrieve messages' });
   }
+});
+
+// 404 handler for non-API routes
+app.get('*', (req, res) => {
+  res.status(404).json({ 
+    error: 'Not Found',
+    message: 'This is an API server. Please use the frontend application.',
+    availableEndpoints: [
+      '/api/health',
+      '/api/webhooks/stripe',
+      '/api/onboarding-submissions',
+      '/api/all-customers',
+      '/api/sync-data',
+      '/api/chat-message',
+      '/api/chat-messages/:customerEmail'
+    ],
+    timestamp: new Date().toISOString() // Force deployment update
+  });
 });
 
 app.listen(PORT, () => {
