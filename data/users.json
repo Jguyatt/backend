@@ -1,0 +1,14 @@
+{
+  "tryranklyai@gmail.com": {
+    "name": "Jacob Guyatt",
+    "email": "tryranklyai@gmail.com",
+    "password": "password123",
+    "business": "Rankly360 Business",
+    "businessName": "Rankly360 Business",
+    "firstName": "Jacob",
+    "lastName": "Guyatt",
+    "isAdmin": false,
+    "emailVerified": true,
+    "createdAt": "2025-07-30T19:55:30.434Z"
+  }
+}

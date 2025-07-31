@@ -28,12 +28,15 @@ app.post('/api/webhooks/stripe', (req, res) => {
   }
 
   console.log('🔔 Received Stripe webhook event:', event.type);
+  console.log('📊 Webhook event data:', JSON.stringify(event.data.object, null, 2));
 
   // Handle the event
   switch (event.type) {
     case 'checkout.session.completed':
       const session = event.data.object;
       console.log('💰 Payment completed for session:', session.id);
+      console.log('👤 Customer email:', session.customer_details?.email);
+      console.log('💰 Amount:', session.amount_total);
       
       // Process the purchase
       processPurchase(session);
@@ -75,28 +78,71 @@ function processPurchase(session) {
     else if (amount === 849) packageName = 'Platinum Local SEO';
     else if (amount === 1) packageName = 'Test';
 
-    // Create customer data structure
-    const customerData = {
+    // Check if customer already exists
+    const existingCustomerData = readStorage('customerData.json') || {};
+    const customerKey = `customer-${customerEmail?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'unknown'}`;
+    const existingCustomer = existingCustomerData[customerKey];
+    
+    console.log('🔍 Customer lookup:', {
+      email: customerEmail,
+      customerKey: customerKey,
+      existingCustomer: !!existingCustomer,
+      allKeys: Object.keys(existingCustomerData)
+    });
+    
+    // Create new project
+    const newProject = {
+      id: Date.now(),
+      name: `${packageName} Package`,
+      status: 'Active',
+      startDate: new Date().toISOString().split('T')[0],
+      progress: 20, // Purchase completed, onboarding pending
+      nextUpdate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      type: getProjectType(packageName),
+      category: getProjectCategory(packageName),
+      requirements: getProjectRequirements(packageName),
+      estimatedDuration: '30 days',
+      deliverables: getProjectDeliverables(packageName)
+    };
+
+    // Create customer data structure - either new or updated
+    const customerData = existingCustomer ? {
+      ...existingCustomer,
+      // Add new project to existing active projects
+      activeProjects: [...(existingCustomer.activeProjects || []), newProject],
+      // Update recent activity
+      recentActivity: [
+        { 
+          type: 'purchase_completed', 
+          message: `New project added: ${packageName} Package`, 
+          date: new Date().toISOString().split('T')[0] 
+        },
+        ...(existingCustomer.recentActivity || [])
+      ],
+      // Update subscription info for the new project
+      subscription: {
+        status: 'Active',
+        plan: `${packageName} Package`,
+        totalAmount: amount,
+        nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      },
+      billing: {
+        plan: `${packageName} Package`,
+        amount: `$${amount}`,
+        nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        status: 'Active'
+      },
+      stripeCustomerId: session.customer || 'cus_' + Date.now(),
+      stripeSessionId: sessionId,
+      subscriptionStatus: 'Active'
+    } : {
+      // New customer - create full structure
       name: customerName || 'Customer',
       email: customerEmail || 'customer@example.com',
       business: (customerName || 'Customer') + ' Business',
       package: packageName,
       totalAmount: amount,
-      activeProjects: [
-        {
-          id: Date.now(),
-          name: `${packageName} Package`,
-          status: 'Active',
-          startDate: new Date().toISOString().split('T')[0],
-          progress: 20, // Purchase completed, onboarding pending
-          nextUpdate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          type: getProjectType(packageName),
-          category: getProjectCategory(packageName),
-          requirements: getProjectRequirements(packageName),
-          estimatedDuration: '30 days',
-          deliverables: getProjectDeliverables(packageName)
-        }
-      ],
+      activeProjects: [newProject],
       orderTimeline: {
         orderPlaced: {
           status: 'completed',
@@ -151,12 +197,12 @@ function processPurchase(session) {
     console.log('✅ Customer data created:', customerData);
 
     // Store in customer data storage
-    const customerKey = `customer-${customerEmail?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'unknown'}`;
+    const storageCustomerKey = `customer-${customerEmail?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'unknown'}`;
     
     // Use the same storage system as API endpoints
-    const existingCustomerData = readStorage('customerData.json') || {};
-    existingCustomerData[customerKey] = customerData;
-    writeStorage('customerData.json', existingCustomerData);
+    const storageCustomerData = readStorage('customerData.json') || {};
+    storageCustomerData[storageCustomerKey] = customerData;
+    writeStorage('customerData.json', storageCustomerData);
     
     // Also add to users storage if not already there
     const existingUsers = readStorage('users.json') || {};
@@ -184,6 +230,9 @@ function processPurchase(session) {
     console.log('👤 Customer Name:', customerName);
     console.log('📦 Package:', packageName);
     console.log('💰 Amount:', amount);
+    console.log('🔑 Customer Key:', customerKey);
+    console.log('📊 Active Projects Count:', customerData.activeProjects.length);
+    console.log('💾 Data saved to backend storage');
     
   } catch (error) {
     console.error('❌ Error processing purchase:', error);
@@ -1215,36 +1264,42 @@ app.get('/api/health', (req, res) => {
 // Chat endpoints
 app.post('/api/chat-message', (req, res) => {
   try {
-    const { customerEmail, message, sender, timestamp } = req.body;
+    const { customerEmail, projectId, message, sender, timestamp } = req.body;
     
     if (!customerEmail || !message || !sender) {
       return res.status(400).json({ error: 'Missing required fields: customerEmail, message, sender' });
     }
 
+    // Create chat key - project-specific or general
+    const chatKey = projectId ? `${customerEmail}_${projectId}` : customerEmail;
+    
     // Read existing chat messages
     const chatData = readStorage('chat-messages.json') || {};
     
     // Initialize customer's chat array if it doesn't exist
-    if (!chatData[customerEmail]) {
-      chatData[customerEmail] = [];
+    if (!chatData[chatKey]) {
+      chatData[chatKey] = [];
     }
     
     // Add new message
     const newMessage = {
       id: Date.now().toString(),
       customerEmail,
+      projectId,
       message,
       sender,
       timestamp: timestamp || new Date().toISOString()
     };
     
-    chatData[customerEmail].push(newMessage);
+    chatData[chatKey].push(newMessage);
     
     // Save to file
     writeStorage('chat-messages.json', chatData);
     
     console.log('💬 Chat message saved:', {
+      chatKey,
       customerEmail,
+      projectId,
       message: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
       sender,
       timestamp: newMessage.timestamp
@@ -1262,19 +1317,19 @@ app.post('/api/chat-message', (req, res) => {
   }
 });
 
-app.get('/api/chat-messages/:customerEmail', (req, res) => {
+app.get('/api/chat-messages/:chatKey', (req, res) => {
   try {
-    const { customerEmail } = req.params;
+    const { chatKey } = req.params;
     
-    if (!customerEmail) {
-      return res.status(400).json({ error: 'Customer email is required' });
+    if (!chatKey) {
+      return res.status(400).json({ error: 'Chat key is required' });
     }
     
     // Read chat messages
     const chatData = readStorage('chat-messages.json') || {};
-    const customerMessages = chatData[customerEmail] || [];
+    const customerMessages = chatData[chatKey] || [];
     
-    console.log('💬 Retrieved chat messages for:', customerEmail, 'Count:', customerMessages.length);
+    console.log('💬 Retrieved chat messages for:', chatKey, 'Count:', customerMessages.length);
     
     res.json({ 
       success: true,

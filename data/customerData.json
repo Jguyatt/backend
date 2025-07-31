@@ -1,0 +1,68 @@
+{
+  "tryranklyai@gmail.com": {
+    "name": "Jacob Guyatt",
+    "email": "tryranklyai@gmail.com",
+    "business": "Rankly360 Business",
+    "package": "Test Package",
+    "totalAmount": 1,
+    "activeProjects": [
+      {
+        "id": 1753905330433,
+        "name": "Test Package",
+        "status": "Active",
+        "startDate": "2025-07-30",
+        "progress": 20,
+        "nextUpdate": "2025-08-29",
+        "type": "Local SEO",
+        "category": "Google Business Profile",
+        "requirements": [
+          "Business information",
+          "Service area",
+          "Contact details"
+        ],
+        "estimatedDuration": "30 days",
+        "deliverables": [
+          "Optimized GBP",
+          "Local citations",
+          "Review management"
+        ],
+        "currentPhase": "Onboarding",
+        "nextMilestone": "Complete onboarding form"
+      }
+    ],
+    "orderTimeline": {
+      "orderPlaced": {
+        "completed": true,
+        "status": "completed",
+        "date": "2025-07-30"
+      },
+      "onboardingForm": {
+        "completed": false,
+        "status": "pending_approval",
+        "date": "2025-07-30"
+      },
+      "orderInProgress": {
+        "completed": false,
+        "status": "pending",
+        "date": null
+      },
+      "reviewDelivery": {
+        "completed": false,
+        "status": "pending",
+        "date": null
+      },
+      "orderComplete": {
+        "completed": false,
+        "status": "pending",
+        "date": null
+      }
+    },
+    "recentActivity": [
+      {
+        "type": "project_started",
+        "message": "Test project started",
+        "date": "2025-07-30"
+      }
+    ]
+  }
+}
