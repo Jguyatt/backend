@@ -80,7 +80,8 @@ function processPurchase(session) {
 
     // Check if customer already exists
     const existingCustomerData = readStorage('customerData.json') || {};
-    const customerKey = `customer-${customerEmail?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'unknown'}`;
+    // Use email directly as key for consistency with frontend
+    const customerKey = customerEmail?.toLowerCase() || 'unknown';
     const existingCustomer = existingCustomerData[customerKey];
     
     console.log('🔍 Customer lookup:', {
@@ -303,6 +304,43 @@ app.get('/api/purchases', (req, res) => {
   }
 });
 
+// API endpoint to manually process a purchase (fallback for webhook failures)
+app.post('/api/manual-purchase', (req, res) => {
+  try {
+    const { email, packageName, amount, sessionId } = req.body;
+    
+    if (!email || !packageName || !amount) {
+      return res.status(400).json({ error: 'Missing required fields: email, packageName, amount' });
+    }
+    
+    console.log('🔄 Manual purchase processing:', { email, packageName, amount, sessionId });
+    
+    // Create a mock session object for processPurchase
+    const mockSession = {
+      customer_details: {
+        email: email,
+        name: email.split('@')[0] // Use email prefix as name
+      },
+      amount_total: amount * 100, // Convert to cents
+      id: sessionId || `manual_${Date.now()}`
+    };
+    
+    // Process the purchase
+    processPurchase(mockSession);
+    
+    res.json({ 
+      success: true, 
+      message: 'Purchase processed manually',
+      customerEmail: email,
+      packageName: packageName
+    });
+    
+  } catch (error) {
+    console.error('❌ Manual purchase processing error:', error);
+    res.status(500).json({ error: 'Failed to process manual purchase' });
+  }
+});
+
 // API endpoint to mark purchase as processed
 app.post('/api/purchases/:id/process', (req, res) => {
   try {
@@ -426,6 +464,13 @@ app.post('/api/sync-data', (req, res) => {
           delete existingData[key];
         }
       });
+      
+      // Also remove old format entries
+      const oldFormatKey2 = `customer-${emailLower.replace('@', '-').replace('.', '-')}`;
+      if (existingData[oldFormatKey2]) {
+        console.log('🔄 Removing old format entry:', oldFormatKey2);
+        delete existingData[oldFormatKey2];
+      }
       
       // Save the new/updated entry with the correct key
       existingData[emailLower] = customerData;
