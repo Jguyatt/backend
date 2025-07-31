@@ -392,17 +392,13 @@ app.get('/api/customer-data/:email', (req, res) => {
     // Try multiple possible key formats
     let customer = null;
     
-    // First try the email directly
-    if (customerData[email]) {
-      customer = customerData[email];
-    }
-    // Then try the customer- format
-    else if (customerData[`customer-${email.replace(/[^a-zA-Z0-9]/g, '-')}`]) {
-      customer = customerData[`customer-${email.replace(/[^a-zA-Z0-9]/g, '-')}`];
-    }
-    // Finally try with lowercase
-    else if (customerData[email.toLowerCase()]) {
+    // Try with lowercase email (consistent key format)
+    if (customerData[email.toLowerCase()]) {
       customer = customerData[email.toLowerCase()];
+    }
+    // Fallback to original email format
+    else if (customerData[email]) {
+      customer = customerData[email];
     }
     
     if (customer) {
@@ -917,9 +913,9 @@ app.post('/api/test/create-customer', (req, res) => {
       stripeSessionId: 'cs_test_' + Date.now()
     };
     
-    // Store the customer data
+    // Store the customer data - use email directly as key for consistency
     const existingData = readStorage('customerData.json') || {};
-    const customerKey = `customer-${email.replace(/[^a-zA-Z0-9]/g, '-')}`;
+    const customerKey = email.toLowerCase();
     existingData[customerKey] = customerData;
     writeStorage('customerData.json', existingData);
     

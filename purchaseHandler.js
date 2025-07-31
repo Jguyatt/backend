@@ -126,9 +126,9 @@ const purchaseHandler = {
       stripeSessionId
     };
 
-    // Store customer data
+    // Store customer data - use email directly as key for consistency
     const existingData = readStorage('customerData.json') || {};
-    const customerKey = `customer-${finalEmail.replace(/[^a-zA-Z0-9]/g, '-')}`;
+    const customerKey = finalEmail.toLowerCase();
     existingData[customerKey] = customerData;
     writeStorage('customerData.json', existingData);
     
