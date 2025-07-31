@@ -68,7 +68,7 @@ const purchaseHandler = {
           status: 'Active',
           startDate: new Date().toISOString().split('T')[0],
           progress: 20, // Purchase completed, onboarding pending
-          nextUpdate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          nextUpdate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           type: getProjectType(packageName),
           category: getProjectCategory(packageName),
           requirements: getProjectRequirements(packageName),
@@ -114,12 +114,12 @@ const purchaseHandler = {
         status: 'Active',
         plan: `${packageName} Package`,
         monthlyRate: amount,
-        nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        nextBilling: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       },
       billing: {
         plan: `${packageName} Package`,
         amount: `$${amount}`,
-        nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        nextBilling: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         status: 'Active'
       },
       stripeCustomerId,

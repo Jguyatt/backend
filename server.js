@@ -98,11 +98,11 @@ function processPurchase(session) {
       status: 'Active',
       startDate: new Date().toISOString().split('T')[0],
       progress: 20, // Purchase completed, onboarding pending
-      nextUpdate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      nextUpdate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       type: getProjectType(packageName),
       category: getProjectCategory(packageName),
       requirements: getProjectRequirements(packageName),
-      estimatedDuration: '30 days',
+      estimatedDuration: '14 days',
       deliverables: getProjectDeliverables(packageName)
     };
 
@@ -125,12 +125,12 @@ function processPurchase(session) {
         status: 'Active',
         plan: `${packageName} Package`,
         totalAmount: amount,
-        nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        nextBilling: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       },
       billing: {
         plan: `${packageName} Package`,
         amount: `$${amount}`,
-        nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        nextBilling: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         status: 'Active'
       },
       stripeCustomerId: session.customer || 'cus_' + Date.now(),
@@ -182,12 +182,12 @@ function processPurchase(session) {
         status: 'Active',
         plan: `${packageName} Package`,
         totalAmount: amount,
-        nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        nextBilling: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       },
       billing: {
         plan: `${packageName} Package`,
         amount: `$${amount}`,
-        nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        nextBilling: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         status: 'Active'
       },
       stripeCustomerId: session.customer || 'cus_' + Date.now(),
@@ -197,8 +197,8 @@ function processPurchase(session) {
 
     console.log('✅ Customer data created:', customerData);
 
-    // Store in customer data storage
-    const storageCustomerKey = `customer-${customerEmail?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'unknown'}`;
+    // Store in customer data storage - use email directly as key for consistency
+    const storageCustomerKey = customerEmail?.toLowerCase() || 'unknown';
     
     // Use the same storage system as API endpoints
     const storageCustomerData = readStorage('customerData.json') || {};
@@ -328,11 +328,25 @@ app.post('/api/manual-purchase', (req, res) => {
     // Process the purchase
     processPurchase(mockSession);
     
+    // Force a sync to ensure data is properly stored
+    const customerData = readStorage('customerData.json') || {};
+    const customerKey = email.toLowerCase();
+    const customer = customerData[customerKey];
+    
+    if (customer) {
+      console.log('✅ Manual purchase: Customer data found and stored');
+      console.log('📊 Active projects:', customer.activeProjects?.length);
+    } else {
+      console.log('❌ Manual purchase: Customer data not found after processing');
+    }
+    
     res.json({ 
       success: true, 
       message: 'Purchase processed manually',
       customerEmail: email,
-      packageName: packageName
+      packageName: packageName,
+      customerFound: !!customer,
+      activeProjectsCount: customer?.activeProjects?.length || 0
     });
     
   } catch (error) {
@@ -409,9 +423,35 @@ app.get('/api/all-customers', (req, res) => {
     const onboardingSubmissions = readStorage('onboarding-submissions.json') || [];
     const deletedUsers = readStorage('deletedUsers.json') || [];
     
+    // Migrate any old format keys to new format
+    const migratedCustomerData = {};
+    let hasChanges = false;
+    
+    for (const [key, customer] of Object.entries(customerData)) {
+      if (customer && customer.email) {
+        const correctKey = customer.email.toLowerCase();
+        if (key !== correctKey) {
+          console.log('🔄 Migrating customer key:', key, '→', correctKey);
+          migratedCustomerData[correctKey] = customer;
+          hasChanges = true;
+        } else {
+          migratedCustomerData[key] = customer;
+        }
+      } else {
+        // Keep entries without email as-is
+        migratedCustomerData[key] = customer;
+      }
+    }
+    
+    // Save migrated data if changes were made
+    if (hasChanges) {
+      writeStorage('customerData.json', migratedCustomerData);
+      console.log('✅ Customer data migrated to consistent key format');
+    }
+    
     res.json({
       success: true,
-      customers: customerData,
+      customers: migratedCustomerData,
       users: users,
       onboardingSubmissions: onboardingSubmissions,
       deletedUsers: deletedUsers
@@ -819,11 +859,11 @@ app.post('/api/test/create-customer', (req, res) => {
           status: 'Active',
           startDate: new Date().toISOString().split('T')[0],
           progress: 20,
-          nextUpdate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          nextUpdate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           type: 'SEO',
           category: 'Local SEO',
           requirements: ['Business Information', 'Service Details'],
-          estimatedDuration: '30 days',
+          estimatedDuration: '14 days',
           deliverables: ['SEO Optimization', 'Rankings Report']
         }
       ],
@@ -865,12 +905,12 @@ app.post('/api/test/create-customer', (req, res) => {
         status: 'Active',
         plan: `${packageName || 'Test'} Package`,
         monthlyRate: amount || 1,
-        nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        nextBilling: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       },
       billing: {
         plan: `${packageName || 'Test'} Package`,
         amount: `$${amount || 1}`,
-        nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        nextBilling: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         status: 'Active'
       },
       stripeCustomerId: 'cus_test_' + Date.now(),
@@ -1214,11 +1254,11 @@ function initializeDataIfEmpty() {
             status: 'Active',
             startDate: new Date().toISOString().split('T')[0],
             progress: 20,
-            nextUpdate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            nextUpdate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             type: 'Local SEO',
             category: 'Google Business Profile',
             requirements: ['Business information', 'Service area', 'Contact details'],
-            estimatedDuration: '30 days',
+            estimatedDuration: '14 days',
             deliverables: ['Optimized GBP', 'Local citations', 'Review management'],
             currentPhase: 'Onboarding',
             nextMilestone: 'Complete onboarding form'

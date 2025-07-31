@@ -84,28 +84,28 @@ const customerAuth = {
         type: 'Google Maps Optimization',
         category: 'Local SEO',
         requirements: ['Business Information', 'Service Areas', 'Target Keywords'],
-        estimatedDuration: '30-45 days',
+        estimatedDuration: '14 days',
         deliverables: ['GMB Optimization', 'Map Rankings', 'Traffic Reports']
       },
       'Google Maps iFrame Cloud Stack Boost 🚀': {
         type: 'Advanced Maps Integration',
         category: 'Technical SEO',
         requirements: ['Website Access', 'Business Details', 'Target Locations'],
-        estimatedDuration: '45-60 days',
+        estimatedDuration: '14 days',
         deliverables: ['Cloud Stack Setup', 'Map Embeds', 'Performance Analytics']
       },
       'Local Citations for Local SEO': {
         type: 'Citation Building',
         category: 'Local SEO',
         requirements: ['Business Information', 'Service Categories', 'Local Areas'],
-        estimatedDuration: '30-40 days',
+        estimatedDuration: '14 days',
         deliverables: ['Citation Listings', 'NAP Consistency', 'Local Rankings']
       },
       'Platinum Local SEO Package': {
         type: 'Comprehensive Local SEO',
         category: 'Premium Package',
         requirements: ['Complete Business Profile', 'Competitor Analysis', 'Local Strategy'],
-        estimatedDuration: '60-90 days',
+        estimatedDuration: '14 days',
         deliverables: ['Full Local SEO Suite', 'Monthly Reports', 'Ongoing Optimization']
       }
     };
@@ -114,7 +114,7 @@ const customerAuth = {
       type: 'Local SEO Service',
       category: 'SEO',
       requirements: ['Business Information'],
-      estimatedDuration: '30-45 days',
+              estimatedDuration: '14 days',
       deliverables: ['SEO Optimization', 'Rankings Report']
     };
     
@@ -183,7 +183,7 @@ const customerAuth = {
         status: 'Active',
         plan: packageName,
         monthlyRate: monthlyRate,
-        nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        nextBilling: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       }
     };
     
@@ -225,7 +225,7 @@ const customerAuth = {
         billing: {
           plan: 'Map PowerBoost Package',
           amount: '$279',
-          nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          nextBilling: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           status: 'Active'
         },
         orderTimeline: {
@@ -354,7 +354,7 @@ const customerAuth = {
         billing: {
           plan: clientData.plan || 'Basic',
           amount: clientData.amount || '$0',
-          nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          nextBilling: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           status: 'Active'
         }
       };
